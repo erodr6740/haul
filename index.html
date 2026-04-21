@@ -743,8 +743,8 @@
     <div class="panel active" id="panel-url">
       <div class="clipboard-area" id="clipboard-area">
         <div class="clipboard-icon">📋</div>
-        <div class="clipboard-msg" id="clipboard-msg">Checking clipboard...</div>
-        <button class="btn-paste" id="btn-paste" onclick="pasteAndPreview()" style="display:none">Paste &amp; Preview</button>
+        <div class="clipboard-msg" id="clipboard-msg">Copy an image URL, then tap below</div>
+        <button class="btn-paste" id="btn-paste" onclick="pasteAndPreview()">📋 Paste &amp; Preview</button>
       </div>
       <div class="input-group" style="margin-top:12px;">
         <div class="input-label">Or type / paste URL manually</div>
@@ -964,50 +964,48 @@
   }
 
   // ── URL TAB ──
-  // ── CLIPBOARD DETECTION ──
-  async function checkClipboard() {
-    const area = document.getElementById('clipboard-area');
-    const msg = document.getElementById('clipboard-msg');
-    const btn = document.getElementById('btn-paste');
-    const urlEl = document.getElementById('clipboard-url');
-
-    try {
-      if (!navigator.clipboard || !navigator.clipboard.readText) {
-        msg.textContent = 'Paste a URL below manually';
-        return;
-      }
-      const text = await navigator.clipboard.readText();
-      if (text && (text.startsWith('http://') || text.startsWith('https://'))) {
-        area.classList.add('has-url');
-        msg.className = 'clipboard-msg has-url';
-        msg.textContent = 'Image URL detected in clipboard:';
-        // Show truncated URL
-        let urlDisplay = document.getElementById('clipboard-url');
-        if (!urlDisplay) {
-          urlDisplay = document.createElement('div');
-          urlDisplay.id = 'clipboard-url';
-          urlDisplay.className = 'clipboard-url';
-          msg.after(urlDisplay);
-        }
-        urlDisplay.textContent = text.length > 50 ? text.substring(0, 50) + '...' : text;
-        btn.style.display = 'block';
-        btn.dataset.url = text;
-      } else {
-        msg.textContent = 'Copy an image URL, then come back here';
-        btn.style.display = 'none';
-        area.classList.remove('has-url');
-      }
-    } catch(e) {
-      msg.textContent = 'Paste a URL below manually';
-    }
+  // ── CLIPBOARD ──
+  function checkClipboard() {
+    // No-op: we now read clipboard on demand when user taps the button
   }
 
   async function pasteAndPreview() {
-    const btn = document.getElementById('btn-paste');
-    const url = btn.dataset.url;
-    if (!url) return;
-    document.getElementById('direct-url').value = url;
-    previewURL();
+    const msg = document.getElementById('clipboard-msg');
+    const area = document.getElementById('clipboard-area');
+    let url = '';
+
+    try {
+      if (navigator.clipboard && navigator.clipboard.readText) {
+        url = await navigator.clipboard.readText();
+      }
+    } catch(e) {
+      // Permission denied — fall through to prompt
+    }
+
+    if (url && (url.startsWith('http://') || url.startsWith('https://'))) {
+      document.getElementById('direct-url').value = url;
+      area.classList.add('has-url');
+      msg.className = 'clipboard-msg has-url';
+      // Show truncated URL
+      let urlDisplay = document.getElementById('clipboard-url');
+      if (!urlDisplay) {
+        urlDisplay = document.createElement('div');
+        urlDisplay.id = 'clipboard-url';
+        urlDisplay.className = 'clipboard-url';
+        msg.after(urlDisplay);
+      }
+      urlDisplay.textContent = url.length > 50 ? url.substring(0, 50) + '...' : url;
+      previewURL();
+    } else {
+      // Fallback: prompt user to paste manually
+      const typed = prompt('Paste your image URL here:');
+      if (typed && typed.startsWith('http')) {
+        document.getElementById('direct-url').value = typed;
+        previewURL();
+      } else {
+        msg.textContent = 'No URL found — try copying the image URL first';
+      }
+    }
   }
 
   function onUrlInput() {
