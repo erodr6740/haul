@@ -636,6 +636,59 @@
 
     .bookmarklet-link:hover { border-color: var(--accent2); }
 
+    /* Clipboard area */
+    .clipboard-area {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 20px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 10px;
+      text-align: center;
+      transition: border-color 0.2s;
+    }
+
+    .clipboard-area.has-url {
+      border-color: var(--accent);
+      background: rgba(232,255,71,0.04);
+    }
+
+    .clipboard-icon { font-size: 28px; }
+
+    .clipboard-msg {
+      font-size: 11px;
+      color: var(--muted);
+      line-height: 1.5;
+    }
+
+    .clipboard-msg.has-url { color: var(--text); }
+
+    .clipboard-url {
+      font-size: 10px;
+      color: var(--muted);
+      max-width: 100%;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .btn-paste {
+      padding: 10px 24px;
+      background: var(--accent);
+      color: #000;
+      border: none;
+      border-radius: 8px;
+      font-family: 'Syne', sans-serif;
+      font-size: 13px;
+      font-weight: 700;
+      cursor: pointer;
+      transition: all 0.15s;
+    }
+
+    .btn-paste:hover { opacity: 0.85; }
+
     /* Responsive */
     @media (max-width: 400px) {
       header { padding: 16px; }
@@ -688,15 +741,20 @@
 
     <!-- URL Tab -->
     <div class="panel active" id="panel-url">
-      <div class="input-group">
-        <div class="input-label">Image URL</div>
+      <div class="clipboard-area" id="clipboard-area">
+        <div class="clipboard-icon">📋</div>
+        <div class="clipboard-msg" id="clipboard-msg">Checking clipboard...</div>
+        <button class="btn-paste" id="btn-paste" onclick="pasteAndPreview()" style="display:none">Paste &amp; Preview</button>
+      </div>
+      <div class="input-group" style="margin-top:12px;">
+        <div class="input-label">Or type / paste URL manually</div>
         <div class="url-input-row">
-          <input class="url-input" type="url" id="direct-url" placeholder="https://example.com/photo.jpg" />
+          <input class="url-input" type="url" id="direct-url" placeholder="https://example.com/photo.jpg" oninput="onUrlInput()" />
           <button class="btn-fetch" onclick="previewURL()">Preview</button>
         </div>
       </div>
       <div class="preview-box" id="preview-box">
-        <div class="preview-empty">Paste an image URL above to preview it</div>
+        <div class="preview-empty">Copy an image URL then tap Paste &amp; Preview</div>
       </div>
       <button class="btn-save" id="btn-save-url" onclick="saveFromURL()" disabled>Save to Drive</button>
     </div>
@@ -818,6 +876,7 @@
     document.getElementById('btn-auth').textContent = 'Sign Out';
     ensureFolder();
     setupBookmarklet();
+    checkClipboard();
   }
 
   function showAuth() {
@@ -905,6 +964,57 @@
   }
 
   // ── URL TAB ──
+  // ── CLIPBOARD DETECTION ──
+  async function checkClipboard() {
+    const area = document.getElementById('clipboard-area');
+    const msg = document.getElementById('clipboard-msg');
+    const btn = document.getElementById('btn-paste');
+    const urlEl = document.getElementById('clipboard-url');
+
+    try {
+      if (!navigator.clipboard || !navigator.clipboard.readText) {
+        msg.textContent = 'Paste a URL below manually';
+        return;
+      }
+      const text = await navigator.clipboard.readText();
+      if (text && (text.startsWith('http://') || text.startsWith('https://'))) {
+        area.classList.add('has-url');
+        msg.className = 'clipboard-msg has-url';
+        msg.textContent = 'Image URL detected in clipboard:';
+        // Show truncated URL
+        let urlDisplay = document.getElementById('clipboard-url');
+        if (!urlDisplay) {
+          urlDisplay = document.createElement('div');
+          urlDisplay.id = 'clipboard-url';
+          urlDisplay.className = 'clipboard-url';
+          msg.after(urlDisplay);
+        }
+        urlDisplay.textContent = text.length > 50 ? text.substring(0, 50) + '...' : text;
+        btn.style.display = 'block';
+        btn.dataset.url = text;
+      } else {
+        msg.textContent = 'Copy an image URL, then come back here';
+        btn.style.display = 'none';
+        area.classList.remove('has-url');
+      }
+    } catch(e) {
+      msg.textContent = 'Paste a URL below manually';
+    }
+  }
+
+  async function pasteAndPreview() {
+    const btn = document.getElementById('btn-paste');
+    const url = btn.dataset.url;
+    if (!url) return;
+    document.getElementById('direct-url').value = url;
+    previewURL();
+  }
+
+  function onUrlInput() {
+    const url = document.getElementById('direct-url').value.trim();
+    document.getElementById('btn-save-url').disabled = !url;
+  }
+
   function previewURL() {
     const url = document.getElementById('direct-url').value.trim();
     if (!url) return;
@@ -1041,6 +1151,7 @@
 
   // ── TABS ──
   function switchTab(name) {
+    if (name === 'url') checkClipboard();
     document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
     document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
     document.getElementById('tab-' + name).classList.add('active');
