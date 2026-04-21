@@ -308,6 +308,20 @@
 
     .btn-fetch:hover { border-color: var(--accent); color: var(--accent); }
 
+    .btn-clear {
+      padding: 12px 14px;
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      color: var(--muted);
+      font-size: 14px;
+      cursor: pointer;
+      transition: all 0.15s;
+      flex-shrink: 0;
+    }
+
+    .btn-clear:hover { border-color: var(--error); color: var(--error); }
+
     /* Image grid from URL browsing */
     .image-grid {
       display: grid;
@@ -744,17 +758,14 @@
       <div class="clipboard-area" id="clipboard-area">
         <div class="clipboard-icon">📋</div>
         <div class="clipboard-msg" id="clipboard-msg">Copy an image URL, then tap below</div>
-        <button class="btn-paste" id="btn-paste" onclick="pasteAndPreview()">📋 Paste &amp; Preview</button>
+        <button class="btn-paste" id="btn-paste" onclick="pasteAndSave()">📋 Paste &amp; Save to Drive</button>
       </div>
       <div class="input-group" style="margin-top:12px;">
         <div class="input-label">Or type / paste URL manually</div>
         <div class="url-input-row">
           <input class="url-input" type="url" id="direct-url" placeholder="https://example.com/photo.jpg" oninput="onUrlInput()" />
-          <button class="btn-fetch" onclick="previewURL()">Preview</button>
+          <button class="btn-clear" id="btn-clear" onclick="clearUrl()" title="Clear">✕</button>
         </div>
-      </div>
-      <div class="preview-box" id="preview-box">
-        <div class="preview-empty">Copy an image URL then tap Paste &amp; Preview</div>
       </div>
       <button class="btn-save" id="btn-save-url" onclick="saveFromURL()" disabled>Save to Drive</button>
     </div>
@@ -969,43 +980,49 @@
     // No-op: we now read clipboard on demand when user taps the button
   }
 
-  async function pasteAndPreview() {
+  async function pasteAndSave() {
     const msg = document.getElementById('clipboard-msg');
-    const area = document.getElementById('clipboard-area');
+    const btn = document.getElementById('btn-paste');
     let url = '';
 
     try {
       if (navigator.clipboard && navigator.clipboard.readText) {
         url = await navigator.clipboard.readText();
       }
-    } catch(e) {
-      // Permission denied — fall through to prompt
+    } catch(e) {}
+
+    // Fallback to prompt if clipboard blocked or empty
+    if (!url || !url.startsWith('http')) {
+      url = prompt('Paste your image URL here:') || '';
     }
 
-    if (url && (url.startsWith('http://') || url.startsWith('https://'))) {
-      document.getElementById('direct-url').value = url;
-      area.classList.add('has-url');
-      msg.className = 'clipboard-msg has-url';
-      // Show truncated URL
-      let urlDisplay = document.getElementById('clipboard-url');
-      if (!urlDisplay) {
-        urlDisplay = document.createElement('div');
-        urlDisplay.id = 'clipboard-url';
-        urlDisplay.className = 'clipboard-url';
-        msg.after(urlDisplay);
-      }
-      urlDisplay.textContent = url.length > 50 ? url.substring(0, 50) + '...' : url;
-      previewURL();
-    } else {
-      // Fallback: prompt user to paste manually
-      const typed = prompt('Paste your image URL here:');
-      if (typed && typed.startsWith('http')) {
-        document.getElementById('direct-url').value = typed;
-        previewURL();
-      } else {
-        msg.textContent = 'No URL found — try copying the image URL first';
-      }
+    if (!url || !url.startsWith('http')) {
+      showToast('No URL found — copy an image URL first', 'error');
+      return;
     }
+
+    btn.disabled = true;
+    btn.textContent = 'Saving...';
+    msg.textContent = 'Uploading to Drive...';
+
+    try {
+      const filename = url.split('/').pop().split('?')[0] || ('haul_' + Date.now() + '.jpg');
+      await uploadImageFromURL(url, filename);
+      showToast('✓ Saved to Drive!', 'success');
+      msg.textContent = 'Done! Copy another URL to save again.';
+      document.getElementById('clipboard-area').classList.add('has-url');
+    } catch(e) {
+      showToast('Error saving image', 'error');
+      msg.textContent = 'Something went wrong. Try again.';
+    }
+
+    btn.disabled = false;
+    btn.textContent = '📋 Paste & Save to Drive';
+  }
+
+  function clearUrl() {
+    document.getElementById('direct-url').value = '';
+    document.getElementById('btn-save-url').disabled = true;
   }
 
   function onUrlInput() {
@@ -1041,7 +1058,7 @@
     const url = document.getElementById('direct-url').value.trim();
     if (!url || !accessToken) return;
 
-    const filename = url.split('/').pop().split('?')[0] || `haul_${Date.now()}.jpg`;
+    const filename = url.split('/').pop().split('?')[0] || ('haul_' + Date.now() + '.jpg');
     const btn = document.getElementById('btn-save-url');
     btn.disabled = true;
     btn.textContent = 'Saving...';
@@ -1050,7 +1067,7 @@
       await uploadImageFromURL(url, filename);
       showToast('✓ Saved to Drive!', 'success');
       document.getElementById('direct-url').value = '';
-      document.getElementById('preview-box').innerHTML = '<div class="preview-empty">Paste an image URL above to preview it</div>';
+      btn.disabled = true;
     } catch(e) {
       showToast('Error saving image', 'error');
     }
