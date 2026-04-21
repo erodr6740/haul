@@ -1,0 +1,1077 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <meta name="apple-mobile-web-app-title" content="Haul" />
+  <meta name="theme-color" content="#0a0a0a" />
+  <title>Haul — Image Collector</title>
+  <link rel="manifest" href="manifest.json" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=DM+Mono:wght@300;400;500&display=swap" rel="stylesheet" />
+
+  <style>
+    :root {
+      --bg: #0a0a0a;
+      --surface: #111111;
+      --surface2: #1a1a1a;
+      --border: #222222;
+      --accent: #e8ff47;
+      --accent2: #ff6b35;
+      --text: #f0f0f0;
+      --muted: #555555;
+      --success: #47ffb2;
+      --error: #ff4757;
+      --radius: 12px;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    html, body {
+      height: 100%;
+      background: var(--bg);
+      color: var(--text);
+      font-family: 'DM Mono', monospace;
+      overflow-x: hidden;
+    }
+
+    /* Grain overlay */
+    body::before {
+      content: '';
+      position: fixed;
+      inset: 0;
+      background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)' opacity='0.04'/%3E%3C/svg%3E");
+      pointer-events: none;
+      z-index: 9999;
+      opacity: 0.4;
+    }
+
+    #app {
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+    }
+
+    /* ── Header ── */
+    header {
+      padding: 20px 24px 16px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      border-bottom: 1px solid var(--border);
+      position: sticky;
+      top: 0;
+      background: rgba(10,10,10,0.92);
+      backdrop-filter: blur(12px);
+      z-index: 100;
+    }
+
+    .logo {
+      font-family: 'Syne', sans-serif;
+      font-weight: 800;
+      font-size: 22px;
+      letter-spacing: -0.5px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .logo-dot {
+      width: 10px;
+      height: 10px;
+      background: var(--accent);
+      border-radius: 50%;
+      animation: pulse 2s ease-in-out infinite;
+    }
+
+    @keyframes pulse {
+      0%, 100% { opacity: 1; transform: scale(1); }
+      50% { opacity: 0.5; transform: scale(0.8); }
+    }
+
+    .header-right {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .status-badge {
+      font-size: 10px;
+      padding: 4px 10px;
+      border-radius: 20px;
+      border: 1px solid var(--border);
+      color: var(--muted);
+      letter-spacing: 0.05em;
+      text-transform: uppercase;
+    }
+
+    .status-badge.connected {
+      border-color: var(--success);
+      color: var(--success);
+    }
+
+    .btn-sign {
+      font-family: 'DM Mono', monospace;
+      font-size: 11px;
+      font-weight: 500;
+      padding: 8px 16px;
+      border-radius: 8px;
+      border: 1px solid var(--accent);
+      background: transparent;
+      color: var(--accent);
+      cursor: pointer;
+      transition: all 0.15s;
+      letter-spacing: 0.03em;
+    }
+
+    .btn-sign:hover {
+      background: var(--accent);
+      color: #000;
+    }
+
+    /* ── Auth Screen ── */
+    #auth-screen {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 40px 24px;
+      text-align: center;
+      gap: 32px;
+    }
+
+    .auth-icon {
+      width: 80px;
+      height: 80px;
+      border: 2px solid var(--border);
+      border-radius: 20px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 36px;
+      background: var(--surface);
+      position: relative;
+    }
+
+    .auth-icon::after {
+      content: '';
+      position: absolute;
+      inset: -8px;
+      border-radius: 28px;
+      border: 1px solid var(--border);
+      opacity: 0.4;
+    }
+
+    .auth-title {
+      font-family: 'Syne', sans-serif;
+      font-size: 28px;
+      font-weight: 800;
+      letter-spacing: -1px;
+      line-height: 1.1;
+    }
+
+    .auth-title span {
+      color: var(--accent);
+    }
+
+    .auth-desc {
+      font-size: 13px;
+      color: var(--muted);
+      line-height: 1.7;
+      max-width: 280px;
+    }
+
+    .btn-google {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 14px 28px;
+      background: var(--accent);
+      color: #000;
+      border: none;
+      border-radius: var(--radius);
+      font-family: 'Syne', sans-serif;
+      font-size: 14px;
+      font-weight: 700;
+      cursor: pointer;
+      transition: all 0.15s;
+      letter-spacing: 0.02em;
+    }
+
+    .btn-google:hover {
+      transform: translateY(-1px);
+      box-shadow: 0 8px 24px rgba(232,255,71,0.25);
+    }
+
+    .btn-google:active {
+      transform: translateY(0);
+    }
+
+    /* ── Main App ── */
+    #main-screen {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      gap: 0;
+    }
+
+    /* ── Tabs ── */
+    .tabs {
+      display: flex;
+      border-bottom: 1px solid var(--border);
+      padding: 0 24px;
+      gap: 0;
+    }
+
+    .tab {
+      font-family: 'DM Mono', monospace;
+      font-size: 11px;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      padding: 14px 16px;
+      border: none;
+      background: none;
+      color: var(--muted);
+      cursor: pointer;
+      border-bottom: 2px solid transparent;
+      transition: all 0.15s;
+      margin-bottom: -1px;
+    }
+
+    .tab.active {
+      color: var(--accent);
+      border-bottom-color: var(--accent);
+    }
+
+    /* ── Tab Panels ── */
+    .panel { display: none; flex: 1; flex-direction: column; }
+    .panel.active { display: flex; }
+
+    /* ── URL Panel ── */
+    #panel-url {
+      padding: 24px;
+      gap: 16px;
+    }
+
+    .input-group {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+
+    .input-label {
+      font-size: 10px;
+      text-transform: uppercase;
+      letter-spacing: 0.1em;
+      color: var(--muted);
+    }
+
+    .url-input-row {
+      display: flex;
+      gap: 8px;
+    }
+
+    .url-input {
+      flex: 1;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 12px 14px;
+      font-family: 'DM Mono', monospace;
+      font-size: 12px;
+      color: var(--text);
+      outline: none;
+      transition: border-color 0.15s;
+    }
+
+    .url-input:focus {
+      border-color: var(--accent);
+    }
+
+    .url-input::placeholder { color: var(--muted); }
+
+    .btn-fetch {
+      padding: 12px 18px;
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      color: var(--text);
+      font-family: 'DM Mono', monospace;
+      font-size: 12px;
+      cursor: pointer;
+      transition: all 0.15s;
+      white-space: nowrap;
+    }
+
+    .btn-fetch:hover { border-color: var(--accent); color: var(--accent); }
+
+    /* Image grid from URL browsing */
+    .image-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+      gap: 8px;
+      padding: 16px 0;
+      overflow-y: auto;
+      flex: 1;
+    }
+
+    .image-thumb {
+      aspect-ratio: 1;
+      object-fit: cover;
+      border-radius: 8px;
+      border: 2px solid transparent;
+      cursor: pointer;
+      transition: all 0.15s;
+      background: var(--surface);
+    }
+
+    .image-thumb:hover {
+      border-color: var(--accent);
+      transform: scale(1.02);
+    }
+
+    .image-thumb.selected {
+      border-color: var(--accent);
+      box-shadow: 0 0 0 2px var(--accent);
+    }
+
+    /* ── Direct URL Panel ── */
+    #panel-direct {
+      padding: 24px;
+      gap: 16px;
+    }
+
+    .btn-save {
+      width: 100%;
+      padding: 14px;
+      background: var(--accent);
+      color: #000;
+      border: none;
+      border-radius: var(--radius);
+      font-family: 'Syne', sans-serif;
+      font-size: 14px;
+      font-weight: 700;
+      cursor: pointer;
+      transition: all 0.15s;
+      letter-spacing: 0.02em;
+    }
+
+    .btn-save:hover { opacity: 0.85; }
+    .btn-save:disabled { opacity: 0.4; cursor: not-allowed; }
+
+    .preview-box {
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      overflow: hidden;
+      background: var(--surface);
+      min-height: 120px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .preview-box img {
+      max-width: 100%;
+      max-height: 260px;
+      object-fit: contain;
+    }
+
+    .preview-empty {
+      color: var(--muted);
+      font-size: 12px;
+      text-align: center;
+      padding: 24px;
+    }
+
+    /* ── Upload Panel ── */
+    #panel-upload {
+      padding: 24px;
+      gap: 16px;
+    }
+
+    .drop-zone {
+      border: 2px dashed var(--border);
+      border-radius: var(--radius);
+      padding: 48px 24px;
+      text-align: center;
+      cursor: pointer;
+      transition: all 0.15s;
+      background: var(--surface);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .drop-zone:hover, .drop-zone.dragover {
+      border-color: var(--accent);
+      background: rgba(232,255,71,0.04);
+    }
+
+    .drop-icon { font-size: 40px; }
+    .drop-text { font-size: 13px; color: var(--muted); line-height: 1.6; }
+    .drop-text strong { color: var(--text); }
+
+    #file-input { display: none; }
+
+    .upload-preview {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+    }
+
+    .upload-thumb {
+      width: 80px;
+      height: 80px;
+      object-fit: cover;
+      border-radius: 8px;
+      border: 1px solid var(--border);
+    }
+
+    /* ── Queue Panel ── */
+    #panel-queue {
+      padding: 24px;
+      gap: 12px;
+      overflow-y: auto;
+    }
+
+    .queue-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    .queue-title {
+      font-family: 'Syne', sans-serif;
+      font-size: 16px;
+      font-weight: 700;
+    }
+
+    .queue-count {
+      font-size: 11px;
+      color: var(--muted);
+      background: var(--surface);
+      padding: 4px 10px;
+      border-radius: 20px;
+      border: 1px solid var(--border);
+    }
+
+    .queue-empty {
+      text-align: center;
+      color: var(--muted);
+      font-size: 12px;
+      padding: 48px 0;
+    }
+
+    .queue-item {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 12px;
+      background: var(--surface);
+      border-radius: var(--radius);
+      border: 1px solid var(--border);
+      animation: slideIn 0.2s ease;
+    }
+
+    @keyframes slideIn {
+      from { opacity: 0; transform: translateY(8px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    .queue-thumb {
+      width: 48px;
+      height: 48px;
+      object-fit: cover;
+      border-radius: 6px;
+      flex-shrink: 0;
+      background: var(--surface2);
+    }
+
+    .queue-info { flex: 1; min-width: 0; }
+
+    .queue-name {
+      font-size: 11px;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      margin-bottom: 4px;
+    }
+
+    .queue-status {
+      font-size: 10px;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+    }
+
+    .queue-status.pending { color: var(--muted); }
+    .queue-status.uploading { color: var(--accent); }
+    .queue-status.done { color: var(--success); }
+    .queue-status.error { color: var(--error); }
+
+    .progress-bar {
+      height: 2px;
+      background: var(--border);
+      border-radius: 1px;
+      margin-top: 6px;
+      overflow: hidden;
+    }
+
+    .progress-fill {
+      height: 100%;
+      background: var(--accent);
+      border-radius: 1px;
+      transition: width 0.3s ease;
+    }
+
+    .btn-remove {
+      background: none;
+      border: none;
+      color: var(--muted);
+      cursor: pointer;
+      font-size: 16px;
+      padding: 4px;
+      line-height: 1;
+      transition: color 0.15s;
+    }
+
+    .btn-remove:hover { color: var(--error); }
+
+    /* Upload all button */
+    .btn-upload-all {
+      width: 100%;
+      padding: 14px;
+      background: transparent;
+      color: var(--accent);
+      border: 1px solid var(--accent);
+      border-radius: var(--radius);
+      font-family: 'Syne', sans-serif;
+      font-size: 14px;
+      font-weight: 700;
+      cursor: pointer;
+      transition: all 0.15s;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+    }
+
+    .btn-upload-all:hover {
+      background: var(--accent);
+      color: #000;
+    }
+
+    /* ── Toast ── */
+    #toast {
+      position: fixed;
+      bottom: 32px;
+      left: 50%;
+      transform: translateX(-50%) translateY(80px);
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-radius: 100px;
+      padding: 10px 20px;
+      font-size: 12px;
+      white-space: nowrap;
+      transition: transform 0.25s cubic-bezier(0.34, 1.56, 0.64, 1);
+      z-index: 1000;
+      pointer-events: none;
+    }
+
+    #toast.show { transform: translateX(-50%) translateY(0); }
+    #toast.success { border-color: var(--success); color: var(--success); }
+    #toast.error { border-color: var(--error); color: var(--error); }
+
+    /* ── Spinner ── */
+    .spinner {
+      width: 16px; height: 16px;
+      border: 2px solid var(--border);
+      border-top-color: var(--accent);
+      border-radius: 50%;
+      animation: spin 0.6s linear infinite;
+      display: inline-block;
+    }
+
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    /* ── Bookmarklet section ── */
+    .bookmarklet-box {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 16px;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+
+    .bookmarklet-title {
+      font-family: 'Syne', sans-serif;
+      font-size: 13px;
+      font-weight: 700;
+    }
+
+    .bookmarklet-desc {
+      font-size: 11px;
+      color: var(--muted);
+      line-height: 1.6;
+    }
+
+    .bookmarklet-link {
+      display: inline-block;
+      padding: 10px 16px;
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      font-size: 11px;
+      color: var(--accent2);
+      text-decoration: none;
+      cursor: grab;
+      text-align: center;
+      font-family: 'DM Mono', monospace;
+    }
+
+    .bookmarklet-link:hover { border-color: var(--accent2); }
+
+    /* Responsive */
+    @media (max-width: 400px) {
+      header { padding: 16px; }
+      .tabs { padding: 0 16px; }
+      #panel-url, #panel-direct, #panel-upload, #panel-queue { padding: 16px; }
+    }
+  </style>
+</head>
+<body>
+<div id="app">
+
+  <header>
+    <div class="logo">
+      <div class="logo-dot"></div>
+      HAUL
+    </div>
+    <div class="header-right">
+      <div class="status-badge" id="status-badge">not signed in</div>
+      <button class="btn-sign" id="btn-auth" onclick="handleAuth()">Sign In</button>
+    </div>
+  </header>
+
+  <!-- Auth Screen -->
+  <div id="auth-screen">
+    <div class="auth-icon">📸</div>
+    <div>
+      <div class="auth-title">Collect images.<br><span>Anywhere.</span></div>
+    </div>
+    <div class="auth-desc">
+      Sign in with Google to save images directly to your Drive — from any device, any browser.
+    </div>
+    <button class="btn-google" onclick="handleAuth()">
+      <svg width="18" height="18" viewBox="0 0 18 18"><path fill="#000" d="M17.64 9.2c0-.637-.057-1.251-.164-1.84H9v3.481h4.844c-.209 1.125-.843 2.078-1.796 2.717v2.258h2.908c1.702-1.567 2.684-3.874 2.684-6.615z"/><path fill="#000" d="M9 18c2.43 0 4.467-.806 5.956-2.18l-2.908-2.259c-.806.54-1.837.86-3.048.86-2.344 0-4.328-1.584-5.036-3.711H.957v2.332C2.438 15.983 5.482 18 9 18z"/><path fill="#000" d="M3.964 10.71c-.18-.54-.282-1.117-.282-1.71s.102-1.17.282-1.71V4.958H.957C.347 6.173 0 7.548 0 9s.348 2.827.957 4.042l3.007-2.332z"/><path fill="#000" d="M9 3.58c1.321 0 2.508.454 3.44 1.345l2.582-2.58C13.463.891 11.426 0 9 0 5.482 0 2.438 2.017.957 4.958L3.964 7.29C4.672 5.163 6.656 3.58 9 3.58z"/></svg>
+      Continue with Google
+    </button>
+    <div class="auth-desc" style="font-size:10px; opacity:0.5;">
+      Images are saved to a folder called "Haul" in your Google Drive
+    </div>
+  </div>
+
+  <!-- Main App (hidden until signed in) -->
+  <div id="main-screen" style="display:none;">
+
+    <div class="tabs">
+      <button class="tab active" onclick="switchTab('url')" id="tab-url">Paste URL</button>
+      <button class="tab" onclick="switchTab('upload')" id="tab-upload">Upload</button>
+      <button class="tab" onclick="switchTab('queue')" id="tab-queue">Queue <span id="queue-badge"></span></button>
+      <button class="tab" onclick="switchTab('bookmarklet')" id="tab-bookmarklet">iPhone</button>
+    </div>
+
+    <!-- URL Tab -->
+    <div class="panel active" id="panel-url">
+      <div class="input-group">
+        <div class="input-label">Image URL</div>
+        <div class="url-input-row">
+          <input class="url-input" type="url" id="direct-url" placeholder="https://example.com/photo.jpg" />
+          <button class="btn-fetch" onclick="previewURL()">Preview</button>
+        </div>
+      </div>
+      <div class="preview-box" id="preview-box">
+        <div class="preview-empty">Paste an image URL above to preview it</div>
+      </div>
+      <button class="btn-save" id="btn-save-url" onclick="saveFromURL()" disabled>Save to Drive</button>
+    </div>
+
+    <!-- Upload Tab -->
+    <div class="panel" id="panel-upload">
+      <div class="drop-zone" id="drop-zone" onclick="document.getElementById('file-input').click()">
+        <div class="drop-icon">⬆</div>
+        <div class="drop-text">
+          <strong>Tap to choose images</strong><br/>
+          or drag & drop here<br/>
+          <span style="font-size:10px;opacity:0.6;">JPG, PNG, GIF, WebP</span>
+        </div>
+      </div>
+      <input type="file" id="file-input" accept="image/*" multiple onchange="handleFiles(this.files)" />
+      <div class="upload-preview" id="upload-preview"></div>
+      <button class="btn-save" id="btn-upload-selected" style="display:none" onclick="uploadSelectedFiles()">
+        Save to Drive
+      </button>
+    </div>
+
+    <!-- Queue Tab -->
+    <div class="panel" id="panel-queue">
+      <div class="queue-header">
+        <div class="queue-title">Upload Queue</div>
+        <div class="queue-count" id="queue-count">0 items</div>
+      </div>
+      <div id="queue-list">
+        <div class="queue-empty">No images queued yet.<br/>Add some from the other tabs.</div>
+      </div>
+      <button class="btn-upload-all" id="btn-upload-all" onclick="uploadAll()" style="display:none">
+        <span class="spinner" style="display:none" id="upload-spinner"></span>
+        Upload All to Drive
+      </button>
+    </div>
+
+    <!-- Bookmarklet / iPhone Tab -->
+    <div class="panel" id="panel-bookmarklet">
+      <div class="bookmarklet-box">
+        <div class="bookmarklet-title">📱 iPhone Safari Bookmarklet</div>
+        <div class="bookmarklet-desc">
+          Drag the button below to your Safari bookmarks bar on your Mac, then sync to iPhone. When viewing an image in Safari, tap the bookmark to send it straight to Haul.
+        </div>
+        <a class="bookmarklet-link" id="bookmarklet-link" href="#" onclick="return false;">
+          📸 Haul It ← drag this to bookmarks
+        </a>
+        <div class="bookmarklet-desc" style="margin-top:4px;">
+          <strong style="color:var(--text)">On iPhone:</strong> Tap Share → Bookmarks → "Haul It" while viewing any image.
+        </div>
+      </div>
+
+      <div class="bookmarklet-box" style="margin-top:4px;">
+        <div class="bookmarklet-title">🏠 Add to Home Screen</div>
+        <div class="bookmarklet-desc">
+          For the best iPhone experience, add Haul to your home screen:<br/><br/>
+          1. Open this page in Safari<br/>
+          2. Tap the <strong style="color:var(--text)">Share</strong> button (box with arrow)<br/>
+          3. Tap <strong style="color:var(--text)">"Add to Home Screen"</strong><br/>
+          4. Tap <strong style="color:var(--text)">Add</strong>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<!-- Toast -->
+<div id="toast"></div>
+
+<script>
+  // ── CONFIG ──
+  const CLIENT_ID = '125689471632-9aeg54v58vtspee785j5gprh2lq67oho.apps.googleusercontent.com';
+  const SCOPES = 'https://www.googleapis.com/auth/drive.file';
+  const FOLDER_NAME = 'Haul';
+
+  let accessToken = null;
+  let folderId = null;
+  let pendingFiles = [];
+  let selectedFiles = [];
+
+  // ── AUTH ──
+  function handleAuth() {
+    if (accessToken) {
+      // Sign out
+      accessToken = null;
+      folderId = null;
+      showAuth();
+      updateStatus('not signed in', false);
+      document.getElementById('btn-auth').textContent = 'Sign In';
+      return;
+    }
+
+    const params = new URLSearchParams({
+      client_id: CLIENT_ID,
+      redirect_uri: window.location.origin + window.location.pathname,
+      response_type: 'token',
+      scope: SCOPES,
+      include_granted_scopes: 'true'
+    });
+
+    window.location.href = 'https://accounts.google.com/o/oauth2/v2/auth?' + params.toString();
+  }
+
+  function checkAuthCallback() {
+    const hash = window.location.hash;
+    if (hash.includes('access_token')) {
+      const params = new URLSearchParams(hash.substring(1));
+      accessToken = params.get('access_token');
+      // Clean URL
+      history.replaceState(null, '', window.location.pathname);
+      onSignedIn();
+    }
+  }
+
+  function onSignedIn() {
+    showMain();
+    updateStatus('connected', true);
+    document.getElementById('btn-auth').textContent = 'Sign Out';
+    ensureFolder();
+    setupBookmarklet();
+  }
+
+  function showAuth() {
+    document.getElementById('auth-screen').style.display = 'flex';
+    document.getElementById('main-screen').style.display = 'none';
+  }
+
+  function showMain() {
+    document.getElementById('auth-screen').style.display = 'none';
+    document.getElementById('main-screen').style.display = 'flex';
+  }
+
+  function updateStatus(text, connected) {
+    const badge = document.getElementById('status-badge');
+    badge.textContent = text;
+    badge.className = 'status-badge' + (connected ? ' connected' : '');
+  }
+
+  // ── DRIVE FOLDER ──
+  async function ensureFolder() {
+    // Search for existing folder
+    const searchRes = await fetch(
+      `https://www.googleapis.com/drive/v3/files?q=name='${FOLDER_NAME}' and mimeType='application/vnd.google-apps.folder' and trashed=false&fields=files(id,name)`,
+      { headers: { Authorization: `Bearer ${accessToken}` } }
+    );
+    const searchData = await searchRes.json();
+
+    if (searchData.files && searchData.files.length > 0) {
+      folderId = searchData.files[0].id;
+    } else {
+      // Create folder
+      const createRes = await fetch('https://www.googleapis.com/drive/v3/files', {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          name: FOLDER_NAME,
+          mimeType: 'application/vnd.google-apps.folder'
+        })
+      });
+      const createData = await createRes.json();
+      folderId = createData.id;
+    }
+    updateStatus('connected · ' + FOLDER_NAME, true);
+  }
+
+  // ── UPLOAD ──
+  async function uploadImageFromURL(url, filename) {
+    // Fetch image via proxy workaround using fetch
+    let blob;
+    try {
+      const res = await fetch(url);
+      if (!res.ok) throw new Error('Fetch failed');
+      blob = await res.blob();
+    } catch(e) {
+      // If CORS blocked, upload the URL reference as a shortcut text file
+      const text = `Image URL: ${url}\nCollected: ${new Date().toISOString()}`;
+      blob = new Blob([text], { type: 'text/plain' });
+      filename = filename.replace(/\.[^.]+$/, '') + '_url.txt';
+      showToast('⚠ CORS blocked — saved URL reference instead', 'error');
+    }
+    return await uploadBlob(blob, filename);
+  }
+
+  async function uploadBlob(blob, filename) {
+    if (!folderId) await ensureFolder();
+
+    const metadata = {
+      name: filename,
+      parents: [folderId]
+    };
+
+    const form = new FormData();
+    form.append('metadata', new Blob([JSON.stringify(metadata)], { type: 'application/json' }));
+    form.append('file', blob);
+
+    const res = await fetch('https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart&fields=id,name,webViewLink', {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${accessToken}` },
+      body: form
+    });
+
+    if (!res.ok) throw new Error('Upload failed: ' + res.status);
+    return await res.json();
+  }
+
+  // ── URL TAB ──
+  function previewURL() {
+    const url = document.getElementById('direct-url').value.trim();
+    if (!url) return;
+
+    const box = document.getElementById('preview-box');
+    box.innerHTML = '<div class="spinner"></div>';
+
+    const img = new Image();
+    img.crossOrigin = 'anonymous';
+    img.onload = () => {
+      box.innerHTML = '';
+      img.style.maxWidth = '100%';
+      img.style.maxHeight = '260px';
+      img.style.objectFit = 'contain';
+      box.appendChild(img);
+      document.getElementById('btn-save-url').disabled = false;
+    };
+    img.onerror = () => {
+      box.innerHTML = '<div class="preview-empty" style="color:var(--error)">Could not load image.<br/>It may still upload successfully.</div>';
+      document.getElementById('btn-save-url').disabled = false;
+    };
+    img.src = url;
+  }
+
+  async function saveFromURL() {
+    const url = document.getElementById('direct-url').value.trim();
+    if (!url || !accessToken) return;
+
+    const filename = url.split('/').pop().split('?')[0] || `haul_${Date.now()}.jpg`;
+    const btn = document.getElementById('btn-save-url');
+    btn.disabled = true;
+    btn.textContent = 'Saving...';
+
+    try {
+      await uploadImageFromURL(url, filename);
+      showToast('✓ Saved to Drive!', 'success');
+      document.getElementById('direct-url').value = '';
+      document.getElementById('preview-box').innerHTML = '<div class="preview-empty">Paste an image URL above to preview it</div>';
+    } catch(e) {
+      showToast('Error saving image', 'error');
+    }
+
+    btn.disabled = false;
+    btn.textContent = 'Save to Drive';
+  }
+
+  // ── UPLOAD TAB ──
+  function handleFiles(files) {
+    selectedFiles = Array.from(files);
+    const preview = document.getElementById('upload-preview');
+    preview.innerHTML = '';
+
+    selectedFiles.forEach(file => {
+      const reader = new FileReader();
+      reader.onload = e => {
+        const img = document.createElement('img');
+        img.src = e.target.result;
+        img.className = 'upload-thumb';
+        preview.appendChild(img);
+      };
+      reader.readAsDataURL(file);
+    });
+
+    document.getElementById('btn-upload-selected').style.display = selectedFiles.length ? 'block' : 'none';
+    document.getElementById('btn-upload-selected').textContent = `Save ${selectedFiles.length} image${selectedFiles.length > 1 ? 's' : ''} to Drive`;
+  }
+
+  async function uploadSelectedFiles() {
+    if (!selectedFiles.length || !accessToken) return;
+
+    const btn = document.getElementById('btn-upload-selected');
+    btn.disabled = true;
+    btn.textContent = 'Uploading...';
+
+    let success = 0;
+    for (const file of selectedFiles) {
+      try {
+        await uploadBlob(file, file.name);
+        success++;
+      } catch(e) {
+        console.error(e);
+      }
+    }
+
+    showToast(`✓ ${success} of ${selectedFiles.length} saved to Drive!`, 'success');
+    selectedFiles = [];
+    document.getElementById('upload-preview').innerHTML = '';
+    document.getElementById('file-input').value = '';
+    btn.style.display = 'none';
+    btn.disabled = false;
+  }
+
+  // Drag and drop
+  const dropZone = document.getElementById('drop-zone');
+  dropZone.addEventListener('dragover', e => { e.preventDefault(); dropZone.classList.add('dragover'); });
+  dropZone.addEventListener('dragleave', () => dropZone.classList.remove('dragover'));
+  dropZone.addEventListener('drop', e => {
+    e.preventDefault();
+    dropZone.classList.remove('dragover');
+    handleFiles(e.dataTransfer.files);
+  });
+
+  // ── BOOKMARKLET ──
+  function setupBookmarklet() {
+    const appUrl = window.location.href;
+    const bookmarkletCode = `javascript:(function(){
+      var imgs=document.querySelectorAll('img');
+      var src='';
+      if(document.activeElement&&document.activeElement.src){src=document.activeElement.src;}
+      else if(imgs.length===1){src=imgs[0].src;}
+      else{src=window.prompt('Image URL to Haul:',window.location.href);}
+      if(src){window.open('${appUrl}?img='+encodeURIComponent(src),'_blank');}
+    })();`;
+
+    document.getElementById('bookmarklet-link').href = bookmarkletCode;
+  }
+
+  function checkIncomingImage() {
+    const params = new URLSearchParams(window.location.search);
+    const img = params.get('img');
+    if (img) {
+      history.replaceState(null, '', window.location.pathname);
+      // Switch to URL tab and prefill
+      if (accessToken) {
+        switchTab('url');
+        document.getElementById('direct-url').value = decodeURIComponent(img);
+        previewURL();
+      } else {
+        // Store for after auth
+        sessionStorage.setItem('pendingImg', decodeURIComponent(img));
+      }
+    }
+  }
+
+  // ── TABS ──
+  function switchTab(name) {
+    document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+    document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
+    document.getElementById('tab-' + name).classList.add('active');
+    document.getElementById('panel-' + name).classList.add('active');
+  }
+
+  // ── TOAST ──
+  let toastTimer;
+  function showToast(msg, type = '') {
+    const t = document.getElementById('toast');
+    t.textContent = msg;
+    t.className = 'show ' + type;
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(() => { t.className = ''; }, 3000);
+  }
+
+  // ── INIT ──
+  checkAuthCallback();
+  checkIncomingImage();
+
+  // Check pending image after auth
+  if (accessToken) {
+    const pending = sessionStorage.getItem('pendingImg');
+    if (pending) {
+      sessionStorage.removeItem('pendingImg');
+      switchTab('url');
+      document.getElementById('direct-url').value = pending;
+      previewURL();
+    }
+  }
+</script>
+</body>
+</html>
