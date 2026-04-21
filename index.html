@@ -941,13 +941,38 @@
     let blob;
     try {
       const proxyRes = await fetch(PROXY_URL + '?url=' + encodeURIComponent(url));
+      
+      const contentType = proxyRes.headers.get('content-type') || '';
+
+      // Check if proxy returned an error JSON
+      if (contentType.includes('application/json')) {
+        const err = await proxyRes.json();
+        if (err.error === 'pinterest_pin_page') {
+          showToast('Pinterest: long-press image → Copy Image → paste that URL', 'error');
+          throw new Error('pinterest_pin_page');
+        }
+        if (err.error === 'not_an_image') {
+          showToast('That URL is not a direct image link', 'error');
+          throw new Error('not_an_image');
+        }
+        throw new Error(err.error || 'Proxy error');
+      }
+
       if (!proxyRes.ok) throw new Error('Proxy fetch failed');
       blob = await proxyRes.blob();
+
+      // Double-check we got image data
+      if (!blob.type.startsWith('image/')) {
+        showToast('URL did not return an image', 'error');
+        throw new Error('not_an_image');
+      }
+
     } catch(e) {
+      if (e.message === 'pinterest_pin_page' || e.message === 'not_an_image') throw e;
       const text = 'Image URL: ' + url + '\nCollected: ' + new Date().toISOString();
       blob = new Blob([text], { type: 'text/plain' });
       filename = filename.replace(/\.[^.]+$/, '') + '_url.txt';
-      showToast('Could not fetch image — saved URL reference', 'error');
+      showToast('Could not fetch — saved URL reference instead', 'error');
     }
     return await uploadBlob(blob, filename);
   }
