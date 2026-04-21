@@ -771,6 +771,7 @@
   const CLIENT_ID = '125689471632-9aeg54v58vtspee785j5gprh2lq67oho.apps.googleusercontent.com';
   const SCOPES = 'https://www.googleapis.com/auth/drive.file';
   const FOLDER_NAME = 'Haul';
+  const PROXY_URL = 'https://lively-shadow-0d84.erodr6740.workers.dev';
 
   let accessToken = null;
   let folderId = null;
@@ -867,18 +868,16 @@
 
   // ── UPLOAD ──
   async function uploadImageFromURL(url, filename) {
-    // Fetch image via proxy workaround using fetch
     let blob;
     try {
-      const res = await fetch(url);
-      if (!res.ok) throw new Error('Fetch failed');
-      blob = await res.blob();
+      const proxyRes = await fetch(PROXY_URL + '?url=' + encodeURIComponent(url));
+      if (!proxyRes.ok) throw new Error('Proxy fetch failed');
+      blob = await proxyRes.blob();
     } catch(e) {
-      // If CORS blocked, upload the URL reference as a shortcut text file
-      const text = `Image URL: ${url}\nCollected: ${new Date().toISOString()}`;
+      const text = 'Image URL: ' + url + '\nCollected: ' + new Date().toISOString();
       blob = new Blob([text], { type: 'text/plain' });
       filename = filename.replace(/\.[^.]+$/, '') + '_url.txt';
-      showToast('⚠ CORS blocked — saved URL reference instead', 'error');
+      showToast('Could not fetch image — saved URL reference', 'error');
     }
     return await uploadBlob(blob, filename);
   }
